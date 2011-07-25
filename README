@@ -1,0 +1,95 @@
+                 ____  _  __        __
+                |  _ \| | \ \      / /_ __ __ _ _ __
+                | | | | |  \ \ /\ / /| '__/ _` | '_ \
+                | |_| | |___\ V  V / | | | (_| | |_) |
+                |____/|_____|\_/\_/  |_|  \__,_| .__/
+                                               |_|
+
+
+DLWRAP is a Yorick plugin for dynamically calling compiled functions.
+
+The interface is *fast* -- I have measured an extra overhead of ~ 15ns (about
+15 nanoseconds) on my laptop (Core i7 Q820 at 1.73GHz) for a simple function
+call like sin(x) compared to the built-in version of the same function.
+
+
+INSTALLATION
+============
+
+You need two external libraries: one for loading dynamic modules, one for
+dynamically calling compiled functions.
+
+For loading dynamic modules, you can choose:
+ - DLOPEN interface;
+ - LIBTOOL interface <http://www.gnu.org/software/libtool/>, for Debian
+   users:
+     sudo apt-get install libltdl-dev
+ - PLAY interface (this is the Portability LAYer on top of which Yorick is
+   build; with this interface, unloading of modules is not possible).
+
+For dynamically calling compiled functions, you must use:
+ - FFCALL <http://www.haible.de/bruno/packages-ffcall.html>, for Debian
+   users:
+     sudo apt-get install libffcall1-dev
+
+To use DLOPEN, add:
+  -DHAVE_DLOPEN     to macro PKG_CFLAGS in Makefile
+  -ldl              to macro PKG_DEPLIBS in Makefile
+
+To use LIBTOOL, add:
+  -DHAVE_LIBTOOL    to macro PKG_CFLAGS in Makefile
+  -lltdl -ldl       to macro PKG_DEPLIBS in Makefile
+
+To use FFCALL, add:
+  -DHAVE_FFCALL     to macro PKG_CFLAGS in Makefile
+  -lavcall          to macro PKG_DEPLIBS in Makefile
+
+After having edited the Makefile, use Yorick to update the paths:
+
+  yorick -batch make.i
+
+Then compile the package (the "install" step is optional):
+
+  make clean
+  make
+  make install
+
+
+WISH LIST
+=========
+
+ - Hide structure definitions in the SYS object.
+
+ - Write a (pseudo) "configure" script to edit the Makefile.
+
+ - For the moment only functions can be obtained, global variables remain
+   inaccessible.
+
+ - Allow compilation of different plugins with different implementations.
+   For instance:
+     dlwrap-ffcall-play.${DLL}  for FFCALL + PLAY
+     dlwrap-ffcall-dl.${DLL}    for FFCALL + system DL
+     dlwrap-ffcall-ltdl.${DLL}  for FFCALL + GNU Libtool
+
+ - Try other dynamic function calling system like LIBFFI (fix the SIGFPE
+   issue), CINVOKE, etc.
+
+   To dynamically calling compiled functions, I have tried to use LIBFFI
+   <http://sourceware.org/libffi> but ffi_prep_cif() raises a SIGFPE (perhaps
+   it lefts some dirt in the floating-point registers) which interrupts
+   Yorick.  I could not prevent this by using signal(2) to temporarily ignore
+   SIGFPE.  The advantage of LIBFFI would be that it may speedup calling
+   functions (argument parsing can be done only once).
+
+ - Implement callback system for object destruction.
+
+ - Add other "types" to allow for Yorick variables definition: C_INT_OUT,
+   C_LONG_OUT, etc. to mean that the argument is the name of a Yorick variable
+   set with an int, a long, etc. on return, the called function takes a
+   pointer to the corresponding type.
+
+
+AUTHOR
+======
+
+Éric Thiébaut <thiebaut@obs.univ-lyon1.fr>
