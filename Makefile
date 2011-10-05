@@ -24,7 +24,7 @@ OBJS=ydlload.o ydlcall.o
 PKG_EXENAME=yorick
 
 RELEASE_FILES = AUTHORS LICENSE Makefile NEWS README TODO \
-	$(PKG_I) ydlwrap.h ydlload.c ydlcall.c
+	$(PKG_I) $(PKG_I_EXTRA) ydlwrap.h ydlload.c ydlcall.c
 RELEASE_NAME = y$(PKG_NAME)-$(RELEASE_VERSION).tar.bz2
 
 # PKG_DEPLIBS=-Lsomedir -lsomelib   for dependencies of this package
@@ -47,7 +47,7 @@ PKG_CLEAN=
 # autoload file for this package, if any
 PKG_I_START=
 # non-pkg.i include files for this package, if any
-PKG_I_EXTRA=
+PKG_I_EXTRA=dlsys.i
 
 # -------------------------------- standard targets and rules (in Makepkg)
 
