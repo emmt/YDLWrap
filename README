@@ -1,16 +1,42 @@
-                 ____  _  __        __
-                |  _ \| | \ \      / /_ __ __ _ _ __
-                | | | | |  \ \ /\ / /| '__/ _` | '_ \
-                | |_| | |___\ V  V / | | | (_| | |_) |
-                |____/|_____|\_/\_/  |_|  \__,_| .__/
-                                               |_|
+            __   ______  _  __        __
+            \ \ / /  _ \| | \ \      / /_ __ __ _ _ __
+             \ V /| | | | |  \ \ /\ / /| '__/ _` | '_ \
+              | | | |_| | |___\ V  V / | | | (_| | |_) |
+              |_| |____/|_____|\_/\_/  |_|  \__,_| .__/
+                                                 |_|
 
-
-DLWRAP is a Yorick plugin for dynamically calling compiled functions.
+YDLWRAP is a Yorick plugin for dynamically calling compiled functions.
 
 The interface is *fast* -- I have measured an extra overhead of ~ 15ns (about
 15 nanoseconds) on my laptop (Core i7 Q820 at 1.73GHz) for a simple function
 call like sin(x) compared to the built-in version of the same function.
+
+
+EXAMPLE
+=======
+
+Here how you can call a function using the symbols compiled into the Yorick
+excutable itself:
+
+  // Load the plugin:
+  #include "dlwrap.i"
+
+  // Open the executable itself:
+  dll = dlopen();
+
+  // Create a function wrapper:
+  dll_sin = dlwrap(dll, DL_DOUBLE, "sin", DL_DOUBLE);
+  //                |    |          |      |
+  //                |    |          |      `-- argument type
+  //                |    |          `--------- symbol name
+  //                |    `-------------------- return type
+  //                `------------------------- dynamic module
+
+  // Call the wrapper (like a Yorick function):
+  a = dll_sin(1.25);
+
+Of course, you can use the function wrappers as many times as you want and
+open a specific dynamic library.
 
 
 INSTALLATION
