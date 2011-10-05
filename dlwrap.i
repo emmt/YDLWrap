@@ -237,6 +237,7 @@ func dltype(arg, arr)
      | DL_DOUBLE          double    yes           |
      | DL_COMPLEX         complex   yes   (c)     |
      | DL_STRING          char*     yes   (d)     |
+     | DL_ADDRESS         void*     yes   (b)     |
      | DL_POINTER         void*     no    (b)     |
      | DL_CHAR_ARRAY      char*     no    (e)     |
      | DL_SHORT_ARRAY     short*    no    (e)     |
@@ -250,20 +251,23 @@ func dltype(arg, arr)
      +--------------------------------------------+
 
      (a) DL_VOID is only allowed for the return type.  It is sufficient to
-         specify no argument types for a function which takes no arguments.
-     (b) DL_POINTER is perfectly elligible as a pointer but it is managed by
-         Yorick which takes care of reference counts.  DL_LONG can be used to
-         fake pointers, but you'll have to manage the related ressources
-         yourself.
+         specify no argument types for a function which takes no arguments.         
+     (b) DL_ADDRESS and DL_POINTER correspond to a pointer argument for the
+         wrapped function but a DL_ADDRESS is mapped as a Yorick integer
+         (likely a long) while a DL_POINTER is really a Yorick pointer which
+         cannot be used as a returned type.  When using an integer to store an
+         address and fake pointers, you'll have to manage the related
+         ressources yourself.
      (c) A complex is an array of 2 double's.
      (d) A string is an array of char terminated by a '\0'.
      (e) An array of any dimensionality is stored as a "flat" array by Yorick
          and its length is given, by numberof().  Without the "_ARRAY" suffix,
          a Yorick scalar is meant.
 
-     If the functions compiled in the module follow old (Kernighan & Ritchie)
-     style the only allowed return types are VOID, INT, DOUBLE, ...  and the
-     only allowed argument types are: FIXME:
+     For convenience and if a corresponding primitive type is found at
+     runtime, DL_INT_8, DL_INT_16, DL_INT_32, DL_INT_64 and their *_ARRAY
+     counterparts are also defined to represent integer arguments of size 8,
+     16, 32 and 64 bits.
 
 
    SEE ALSO: dlwrap, identof, numberof, dimsof, array.
@@ -274,7 +278,7 @@ func dltype(arg, arr)
     if (is_void(arr)) arr = (! is_scalar(arg));
     return (arr ? (ident | 32) : ident);
   }
-  if (ident == Y_STRUCT) {
+  if (ident == Y_STRUCTDEF) {
     if (arg == long)    return (arr ? DL_LONG_ARRAY    : DL_LONG);
     if (arg == int)     return (arr ? DL_INT_ARRAY     : DL_INT);
     if (arg == char)    return (arr ? DL_CHAR_ARRAY    : DL_CHAR);
@@ -297,6 +301,10 @@ DL_DOUBLE = identof(double(0));
 DL_COMPLEX = identof(complex(0));
 DL_STRING = identof(string(0));
 DL_POINTER = identof(pointer(0));
+DL_INT_8 = (sizeof(char) == 1 ? DL_CHAR : []);
+DL_INT_16 = (sizeof(short) == 2 ? DL_SHORT : []);
+DL_INT_32 = (sizeof(int) == 4 ? DL_INT : (sizeof(long) == 4 ? DL_LONG : []));
+DL_INT_64 = (sizeof(long) == 8 ? DL_LONG : (sizeof(int) == 8 ? DL_INT : []));
 DL_CHAR_ARRAY = DL_CHAR | 32;
 DL_SHORT_ARRAY = DL_SHORT | 32;
 DL_INT_ARRAY = DL_INT | 32;
@@ -306,6 +314,17 @@ DL_DOUBLE_ARRAY = DL_DOUBLE | 32;
 DL_COMPLEX_ARRAY = DL_COMPLEX | 32;
 DL_STRING_ARRAY = DL_STRING | 32;
 DL_POINTER_ARRAY = DL_POINTER | 32;
+if (! is_void(DL_INT_8)) DL_INT_8_ARRAY = DL_INT_8 | 32;
+if (! is_void(DL_INT_16)) DL_INT_16_ARRAY = DL_INT_16 | 32;
+if (! is_void(DL_INT_32)) DL_INT_32_ARRAY = DL_INT_32 | 32;
+if (! is_void(DL_INT_64)) DL_INT_64_ARRAY = DL_INT_64 | 32;
+if (sizeof(pointer) == sizeof(long)) {
+  DL_ADDRESS = DL_LONG;
+} else if (sizeof(pointer) == sizeof(int)) {
+  DL_ADDRESS = DL_INT;
+} else {
+  error, "expecting that 'long' or 'int' have the same size as a 'pointer'";
+}
 
 extern dlwrap_strlen;
 extern dlwrap_strcpy;
