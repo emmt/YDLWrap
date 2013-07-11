@@ -337,10 +337,10 @@ func _sys_swallow(..)
 /* DOCUMENT _sys_swallow, sn1, sn2, ...;
 
      This private subroutine swallows the definition of the symbols named SN1,
-     SN2, etc.  The symbol is removed form the global namespace while its
-     definition is stored into global hash table SYS.  If a symbol is the name
-     of a structure definition, its name is prefixed with "struct_".  For
-     instance:
+     SN2, etc.  Each swallowed symbol is removed form the global namespace
+     while its definition is stored into global hash table SYS.  If a symbol
+     is the name of a structure definition, its name is prefixed with
+     "struct_".  For instance:
 
      struct foo {long index; double value; }
      func bar(x) { return sqrt(x*x + 2.0); }
