@@ -38,8 +38,7 @@
 require, "dlwrap.i";
 
 func sys_cast(address, type, dimlist)
-/* DOCUMENT sys_cast(address, type, dimlist)
-
+/* DOCUMENT sys_cast(address, type, dimlist);
      This function returns an array of given type and dimension list extracted
      from ADDRESS (either an integer or a Yorick pointer).  If ADDRESS is an
      integer (e.g.- a long), the caller is responsible for ensuring that the
@@ -94,7 +93,7 @@ if (sizeof(pointer) == sizeof(long)) {
   error, "expecting that 'long' or 'int' have the same size as a 'pointer'";
 }
 
-/* There is no unsigned integers in Yorick (except maybe 'char').  For
+/* There are no unsigned integers in Yorick (except maybe 'char').  For
    building the structures, signed integers will do. */
 sys_size_t = sys_ssize_t = sys_address_t = sys_offset_t = sys_ptrdiff_t;
 sys_uint8_t = sys_int8_t = char; /* signedness of 'char' is unspecified */
@@ -105,6 +104,47 @@ sys_socklen_t = sys_uint32_t; /* socklen_t is the data type to store the
                                  length of a sockaddr structure it is an
                                  unsigned 32-bit integer */
 
+func _sys_get_integer_type(size)
+{
+  if (sizeof(long) == size) return long;
+  if (sizeof(int) == size) return int;
+  if (sizeof(short) == size) return short;
+  if (sizeof(char) == size) return char;
+}
+
+/* FIXME: this kind of function should be a built-in function */
+func _sys_init_types(nil)
+{
+  extern sys_int8_t, sys_int16_t, sys_int32_t, sys_int64_t;
+  sys_int8_t = (sizeof(char) == 1 ? char : []);
+  sys_int16_t = (sizeof(short) == 2 ? short : []);
+  sys_int32_t = (sizeof(int) == 4 ? int : (sizeof(long) == 4 ? long : []));
+  sys_int64_t = (sizeof(long) == 8 ? long : (sizeof(int) == 8 ? int : []));
+
+  /* There is no unsigned types in Yorick (except maybe 'char'). */
+  extern sys_uint8_t, sys_uint16_t, sys_uint32_t, sys_uint64_t;
+  sys_uint8_t = sys_int8_t;
+  sys_uint16_t = sys_int16_t;
+  sys_uint32_t = sys_int32_t;
+  sys_uint64_t = sys_int64_t;
+
+  extern sys_size_t, sys_ssize_t, sys_addr_t;
+  sys_ssize_t = _sys_get_integer_type(sizeof(pointer));
+  sys_size_t = sys_ssize_t; /* there is nop unsigned types in Yorick */
+  sys_addr_t = sys_ssize_t; /* an integer large enough for an address */
+
+  extern sys_key_t, sys_uid_t, sys_gid_t, sys_pid_t, sys_shmatt_t;
+  sys_key_t = int;
+  sys_uid_t = /* unsigned */ int; // FIXME: can be a short or an int
+  sys_gid_t = /* unsigned */ int; // FIXME: can be a short or an int
+  sys_pid_t = /* unsigned */ int;
+  sys_shmatt_t = /* unsigned */ long;
+
+  extern sys_time_t;
+  sys_time_t = long;
+}
+_sys_init_types;
+
 /* ----------------------------------------------------------------------------
 ** Byte Ordering Routines
 ** ======================
@@ -112,6 +152,8 @@ sys_socklen_t = sys_uint32_t; /* socklen_t is the data type to store the
 ** ANSI-C warrants that sizeof(short) >= 2 and sizeof(int) >= 4, hence
 ** short are used for 16_bit integers and int are used for 32-bit integers.
 */
+
+// FIXME: use virtual data stream
 
 BYTE_ORDER_LITTLE_ENDIAN = 1n;
 BYTE_ORDER_BIG_ENDIAN = 2n;
@@ -233,17 +275,28 @@ ntohl = htonl;
 ** short are used for 16_bit integers and int are used for 32-bit integers.
 */
 
+func _sys_have(sym)
+/* DOCUMENT  _sys_have(sym)
+      Private subroutine to check whether symbol SYM (a string) is
+      defined in Yorick.
+   SEE ALSO: _sys_init, dlwrap.
+ */
+{
+  extern SYS;
+  return (dlsym(SYS.__libc__, sym) != 0);
+}
+
 func _sys_link(rt,nm,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15)
 /* DOCUMENT  _sys_link, rtype, fname, atype1, atype2, ...
       Private subroutine to add a function wrapper in the global SYS table.
       RTYPE is the return type, FNAME the function name, and ATYPE1, ... the
       type(s) of the arguments of the function.
-     
+
    SEE ALSO: _sys_init, dlwrap.
  */
 {
   extern SYS;
-  dl = SYS.__handle__;
+  dl = SYS.__libc__;
   if (is_void(a1)) {
     fn = dlwrap(dl,rt,nm);
   } else if (is_void(a2)) {
@@ -282,11 +335,12 @@ func _sys_link(rt,nm,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15)
 
 func _sys_swallow(..)
 /* DOCUMENT _sys_swallow, sn1, sn2, ...;
-   
+
      This private subroutine swallows the definition of the symbols named SN1,
      SN2, etc.  The symbol is removed form the global namespace while its
-     definition is stored into hash table SYS.  If a symbol is the name of a
-     structure definition, its name is prefixed with "struct_".  For instance:
+     definition is stored into global hash table SYS.  If a symbol is the name
+     of a structure definition, its name is prefixed with "struct_".  For
+     instance:
 
      struct foo {long index; double value; }
      func bar(x) { return sqrt(x*x + 2.0); }
@@ -324,7 +378,7 @@ func _sys_init(nil)
   NULL = sys_address_t(0);
   TRUE = 1n;
   FALSE = 0n;
-  SYS = h_new(__handle__ = dlopen(),
+  SYS = h_new(__libc__ = dlopen(),
               TRUE = TRUE,
               FALSE = FALSE,
               NULL = NULL);
@@ -356,6 +410,7 @@ func _sys_init(nil)
   SOCKLEN = dltype(sys_socklen_t); /* data type to store the length of a
                                       sockaddr structure */
   SIZE = dltype(sys_size_t);
+  SSIZE = SIZE; /* no unsigned type in Yorick */
   ADDRESS = dltype(sys_address_t);
   WORDSIZE = 8*sizeof(pointer); /* size of a 'word' in bits */
   INT16 = dltype(sys_int16_t);
@@ -612,9 +667,9 @@ func _sys_init(nil)
     NI_NAMEREQD    =  8,      /* Don't return numeric addresses.  */
     NI_DGRAM       = 16;      /* Look up UDP service rather than TCP.  */
 
-}
-if (! is_hash(SYS)) {
-  _sys_init;
+
+  /* IPC */
+  _sys_init_ipc;
 }
 
 /* Structure used to store address information. */
@@ -644,7 +699,7 @@ func sys_getaddrinfo(node, service, flags=, family=, socktype=, protocol=)
   /* Constant to check for a NULL address (must have the correct type, beacause
      HANDLE is passed by address below). */
   NULL = sys_address_t(0);
-  
+
   /* Set hints. */
   if (is_void(flags)) flags = 0;
   if (is_void(family)) family = SYS.AF_UNSPEC;
@@ -817,7 +872,7 @@ local sys_getpeername, sys_getsockname;
      SOCKFD and store it in the variable SOCKADDR.
 
      On success, zero is returned.  On error, -1 is returned, and errno is set
-     appropriately (see dlwrap_errno).     
+     appropriately (see dlwrap_errno).
 
   SEE ALSO sys_getaddrinfo, dlwrap_errno.
 */
@@ -840,7 +895,7 @@ func _sys_getsockname_worker(getname)
     buffer = array(char, addrlen);
     status = getname(sockfd, &buffer, &addrlen);
     if (status != 0) return status;
-  }  
+  }
   sockaddr = _sys_unpack_sockaddr(buffer(1:addrlen));
   return status;
 }
@@ -944,10 +999,579 @@ func sys_poll(fds, timeout)
   return SYS.poll(&fds, numberof(fds), timeout);
 }
 
+/*---------------------------------------------------------------------------*/
+/* SYSTEM V IPC */
+
+func _sys_init_ipc
+{
+  extern SYS, SYS_HAVE_IPC, sys_key_t;
+
+  SYS_HAVE_IPC = 0;
+  KEY = dltype(sys_key_t);
+  INT = DL_INT;
+  LONG = DL_LONG;
+  ADDRESS = DL_ADDRESS;
+  POINTER = DL_POINTER;
+
+  /* Generates key for System V style IPC.  */
+  if (_sys_have("ftok")) {
+    _sys_link, KEY, "ftok", STRING /* pathname */, INT /* proj_id */;
+  }
+
+  /* IPC Messages */
+  if (_sys_have("msgctl") && _sys_have("msgget") &&
+      _sys_have("msgrcv") && _sys_have("msgsnd")) {
+
+    SYS_HAVE_IPC |= SYS_HAVE_IPC_MSG;
+
+    /* Message queue control operation.  */
+    _sys_link, INT, "msgctl", INT /* msqid */, INT /* cmd */,
+      ADDRESS /* buf */;
+
+    /* Get messages queue.  */
+    _sys_link, INT, "msgget", KEY /* key */, INT /* msgflg */;
+
+    /* Receive message from message queue. */
+    _sys_link, SSIZE, "msgrcv", INT /* msqid */, ADDRESS /* msgp */,
+      SIZE /* msgsz */, LONG /* msgtyp */, INT /* msgflg */;
+
+    /* Send message to message queue. */
+    _sys_link, INT, "msgsnd", INT /* msqid */, ADDRESS /* msgp */,
+      SIZE /* msgsz */, INT /* msgflg */;
+
+    /* Flags and constants for message queues (definitions found in
+       "bits/msq.h"). */
+    h_set, SYS,
+      MSG_NOERROR = 010000, /* no error if message is too big */
+      MSG_EXCEPT  = 020000, /* (GNU extension) recv any msg except of
+                               specified type */
+      MSG_STAT    = 11,
+      MSG_INFO    = 12;
+  }
+
+  /* IPC Shared Memory */
+  if (_sys_have("shmctl") && _sys_have("shmget") &&
+      _sys_have("shmat") && _sys_have("shmdt")) {
+
+    SYS_HAVE_IPC |= SYS_HAVE_IPC_SHM;
+
+    /* Shared memory control operation.  */
+    _sys_link, INT, "shmctl", INT /* shmid */, INT /* cmd */,
+      POINTER /* buf */;
+
+    /* Get shared memory segment.  */
+    _sys_link, INT, "shmget", KEY /* key */, SIZE /* size */, INT /* shmflg */;
+
+    /* Attach shared memory segment.  */
+    _sys_link, ADDRESS, "shmat", INT /* shmid */, ADDRESS /* shmaddr */,
+      INT /* shmflg */;
+
+    /* Detach shared memory segment.  */
+    _sys_link, INT, "shmdt", ADDRESS /* shmaddr */;
+
+    /* Flags and constants for shared memory (definitions found in
+       "bits/shm.h"). */
+    h_set, SYS,
+      /* Permission flag for shmget.  */
+      SHM_R         =    0400, /* or S_IRUGO from <linux/stat.h> */
+      SHM_W         =    0200, /* or S_IWUGO from <linux/stat.h> */
+      /* Flags for `shmat'.  */
+      SHM_RDONLY    =  010000, /* attach read-only else read-write */
+      SHM_RND       =  020000, /* round attach address to SHMLBA */
+      SHM_REMAP     =  040000, /* take-over region on attach */
+      SHM_EXEC      = 0100000, /* execution access */
+      /* Commands for `shmctl'.  */
+      SHM_LOCK      =      11, /* lock segment (root only) */
+      SHM_UNLOCK    =      12, /* unlock segment (root only) */
+      SHM_STAT      =      13,
+      SHM_INFO      =      14,
+      /* shm_mode upper byte flags */
+      SHM_DEST      =   01000, /* segment will be destroyed on last detach */
+      SHM_LOCKED    =   02000, /* segment will not be swapped */
+      SHM_HUGETLB   =   04000, /* segment is mapped via hugetlb */
+      SHM_NORESERVE =  010000; /* don't check for reservations */
+  }
+
+  /* IPC Shared Memory */
+  if (_sys_have("semctl") && _sys_have("semget") && _sys_have("semop")) {
+
+    SYS_HAVE_IPC |= SYS_HAVE_IPC_SEM;
+
+    /* Semaphore control operation.  */
+    _sys_link, INT, "semctl", INT /* semid */, INT /* semnum */, INT /* cmd */,
+      ADDRESS /* FIXME: optional union semun argument */;
+
+    /* Get semaphore.  */
+    _sys_link, INT, "semget", KEY /* key */, INT /* nsems */, INT /* semflg */;
+
+    /* Operate on semaphore.  */
+    _sys_link, INT, "semop", INT /* semid */, ADDRESS /* sops */,
+      SIZE /* nsops */;
+
+    /* Operate on semaphore with timeout.  */
+    if (_sys_have("semtimedop")) {
+      SYS_HAVE_IPC |= SYS_HAVE_IPC_GNU_SEM;
+      _sys_link, INT, "semtimedop", INT /* semid */, ADDRESS /* sops */,
+        SIZE /* nsops */, ADDRESS /* timeout */;
+    }
+
+    /* Flags and constants for semaphores (definitions found in
+       "bits/sem.h"). */
+    h_set, SYS,
+      /* Flags for `semop'.  */
+      SEM_UNDO = 0x1000, /* undo the operation on exit */
+      /* Commands for `semctl'.  */
+      GETPID   =     11, /* get sempid */
+      GETVAL   =     12, /* get semval */
+      GETALL   =     13, /* get all semval's */
+      GETNCNT  =     14, /* get semncnt */
+      GETZCNT  =     15, /* get semzcnt */
+      SETVAL   =     16, /* set semval */
+      SETALL   =     17, /* set all semval's */
+      /* ipcs ctl cmds */
+      SEM_STAT =     18,
+      SEM_INFO =     19;
+  }
+
+  if (SYS_HAVE_IPC != 0) {
+    h_set, SYS,
+      IPC_CREAT   = 01000,        /* Create entry if key doesn't exist. */
+      IPC_EXCL    = 02000,        /* Fail if key exists. */
+      IPC_NOWAIT  = 04000,        /* Error if request must wait. */
+      IPC_PRIVATE = sys_key_t(0), /* Private key. */
+      IPC_RMID    = 0,            /* Remove resource. */
+      IPC_SET     = 1,            /* Set resource options. */
+      IPC_STAT	  = 2,            /* Get `ipc_perm' options.  */
+      IPC_INFO	  = 3;		  /* GNU extension.  */
+  }
+}
+
+SYS_HAVE_IPC = 0;
+SYS_HAVE_IPC_MSG = 1;
+SYS_HAVE_IPC_SEM = 2;
+SYS_HAVE_IPC_SHM = 4;
+SYS_HAVE_IPC_GNU_SEM = 8;
+
+/* Data structure used to pass permission information to IPC operations
+   (definition found in "bits/ipc.h").  */
+struct sys_ipc_perm {
+    sys_key_t key;			/* Key.  */
+    sys_uid_t uid;			/* Owner's user ID.  */
+    sys_gid_t gid;			/* Owner's group ID.  */
+    sys_uid_t cuid;			/* Creator's user ID.  */
+    sys_gid_t cgid;			/* Creator's group ID.  */
+    /* unsigned */ short mode;		/* Read/write permission.  */
+    /* unsigned */ short __pad1;
+    /* unsigned */ short __seq;		/* Sequence number.  */
+    /* unsigned */ short __pad2;
+    /* unsigned */ long __unused1;
+    /* unsigned */ long __unused2;
+};
+
+/* Structure of record for one message inside the kernel.  The type `struct
+   msg' is opaque (definition found in "bits/msq.h").  */
+struct _sys32_msqid_ds {
+  sys_ipc_perm msg_perm;   /* structure describing operation permission */
+  sys_time_t   msg_stime;  /* time of last msgsnd command */
+  long         __unused1;
+  sys_time_t   msg_rtime;  /* time of last msgrcv command */
+  long         __unused2;
+  sys_time_t   msg_ctime;  /* time of last change */
+  long         __unused3;
+  long         msg_cbytes; /* current number of bytes on queue */
+  long         msg_qnum;   /* number of messages currently on queue */
+  long         msg_qbytes; /* max number of bytes allowed on queue */
+  sys_pid_t    msg_lspid;  /* pid of last msgsnd() */
+  sys_pid_t    msg_lrpid;  /* pid of last msgrcv() */
+  long	       __unused4;
+  long	       __unused5;
+};
+struct _sys64_msqid_ds {
+  sys_ipc_perm msg_perm;   /* structure describing operation permission */
+  sys_time_t   msg_stime;  /* time of last msgsnd command */
+  sys_time_t   msg_rtime;  /* time of last msgrcv command */
+  sys_time_t   msg_ctime;  /* time of last change */
+  long         msg_cbytes; /* current number of bytes on queue */
+  long         msg_qnum;   /* number of messages currently on queue */
+  long         msg_qbytes; /* max number of bytes allowed on queue */
+  sys_pid_t    msg_lspid;  /* pid of last msgsnd() */
+  sys_pid_t    msg_lrpid;  /* pid of last msgrcv() */
+  long	       __unused4;
+  long	       __unused5;
+};
+sys_msqid_ds = (sizeof(pointer) == 8 ? _sys64_msqid_ds : _sys32_msqid_ds);
+
+/* buffer for msgctl calls IPC_INFO, MSG_INFO */
+struct sys_msginfo {
+  int msgpool;
+  int msgmap;
+  int msgmax;
+  int msgmnb;
+  int msgmni;
+  int msgssz;
+  int msgtql;
+  short msgseg;
+};
+
+/* Data structure describing a shared memory segment (definition found in
+   "bits/sem.h"). */
+struct sys_semid_ds {
+  sys_ipc_perm sem_perm;   /* Ownership and permissions */
+  sys_time_t   sem_otime;  /* Last semop time */
+  long         __unused1;
+  sys_time_t   sem_ctime;  /* Last change time */
+  long         __unused2;
+  long         sem_nsems;  /* No. of semaphores in set */
+  long         __unused3;
+  long         __unused4;
+};
+struct sys_seminfo {
+  int semmap;
+  int semmni;
+  int semmns;
+  int semmnu;
+  int semmsl;
+  int semopm;
+  int semume;
+  int semusz;
+  int semvmx;
+  int semaem;
+};
+
+/* Data structure describing a shared memory segment (definition found in
+   "bits/shm.h"). */
+struct _sys32_shmid_ds {
+  sys_ipc_perm   shm_perm;    /* Ownership and permissions */
+  sys_size_t	 shm_segsz;   /* Size of segment (bytes) */
+  sys_time_t	 shm_atime;   /* Last attach time */
+  long           __unused1;
+  sys_time_t	 shm_dtime;   /* Last detach time */
+  long           __unused2;
+  sys_time_t	 shm_ctime;   /* Last change time */
+  long           __unused3;
+  sys_pid_t	 shm_cpid;    /* PID of creator */
+  sys_pid_t	 shm_lpid;    /* PID of last shmat(2)/shmdt(2) */
+  sys_shmatt_t	 shm_nattch;  /* No. of current attaches */
+  long           __unused4;
+  long           __unused5;
+};
+struct _sys64_shmid_ds {
+  sys_ipc_perm   shm_perm;    /* Ownership and permissions */
+  sys_size_t	 shm_segsz;   /* Size of segment (bytes) */
+  sys_time_t	 shm_atime;   /* Last attach time */
+  sys_time_t	 shm_dtime;   /* Last detach time */
+  sys_time_t	 shm_ctime;   /* Last change time */
+  sys_pid_t	 shm_cpid;    /* PID of creator */
+  sys_pid_t	 shm_lpid;    /* PID of last shmat(2)/shmdt(2) */
+  sys_shmatt_t	 shm_nattch;  /* No. of current attaches */
+  long           __unused4;
+  long           __unused5;
+};
+sys_shmid_ds = (sizeof(pointer) == 8 ? _sys64_shmid_ds : _sys32_shmid_ds);
+
+/* must have 112 bytes on Linux */
+
+// on Linux, the macro __WORDSIZE is 32 or 64 depending whether the
+// system is a 32-bit systme or a 64-bit one
+
+// FIXME: struct shmid_ds *__buf;
+// FIXME: struct msqid_ds *
+// FIXME: struct sembuf *
+// FIXME: struct sembuf *
+// FIXME: struct timespec *
+
+/*---------------------------------------------------------------------------*/
+/* SHELL AND FILE SYSTEM ROUTINES */
+
+func sys_read_stream(inp)
+/* DOCUMENT sys_read_stream(inp)
+     This function reads all the contents of text stream INP and returns the
+     result as: string(0), if there is nothing to read; a scalar string, if
+     there is only one line available in the input stream, or a vector of N
+     strings, if there are N available lines.
+
+   SEE ALSO: open, popen, rdline.
+ */
+{
+  // FIXME: deal with CR-LF
+  result = rdline(inp);
+  if (result) {
+    while (1) {
+      buf = rdline(inp, max(numberof(result), 20));
+      if (buf(0)) {
+        grow, result, buf;
+      } else {
+        i = where(buf);
+        if (is_array(i)) grow, result, buf(i);
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+local SYS_TMPDIR;
+local SYS_MKTEMP;
+func sys_mktemp(template, tmpdir=, mktemp=)
+/* DOCUMENT sys_mktemp();
+         or sys_mktemp(template);
+
+     This function creates a temporary file based on TEMPLATE, a string which
+     must contain at least 3 consecutive `X's in last component.  If TEMPLATE
+     is not specified "tmp-XXXXXX" is used.  In case of failure an empty
+     string, string(0), is returned.
+
+     If TEMPLATE is a realtive path (does not start with a "/") a temporary
+     directory is used which can be specified with keyword TMPDIR.  By
+     default, TMPDIR is given by the contents of global variable SYS_TMPDIR.
+     Initially SYS_TMPDIR is set with "/tmp/".
+
+     Keyword MKTEMP can be used to specify the system command to use to
+     generate the temporary file.  By default, the value of the global
+     variable SYS_MKTEMP is used.  Initially SYS_MKTEMP is set with
+     "/bin/mktemp".
+
+   SEE ALSO: open, remove, popen, rdline.
+ */
+{
+  if (is_void(template)) {
+    template = "tmp-XXXXXX";
+  }
+  if (strpart(template, 1:1) != "/") {
+    if (is_void(tmpdir)) {
+      tmpdir = SYS_TMPDIR;
+    }
+    template = ((strpart(tmpdir, 0:0) == "/" ? tmpdir : tmpdir + "/")
+                + template);
+  }
+  if (is_void(mktemp)) {
+    mktemp = SYS_MKTEMP;
+  }
+  if (! open(mktemp, "r", 1)) {
+    error, "bad mktemp command";
+  }
+  return rdline(popen(mktemp + " \"" + template + "\" 2>/dev/null", 0));
+}
+SYS_TMPDIR = "/tmp/";
+SYS_MKTEMP = "/bin/mktemp";
+
+struct sys_exec_result {
+  pointer out, err;
+  int status;
+};
+
+local sys_exec, sys_command;
+/* DOCUMENT sys_command, cmd;
+         or out = sys_command(cmd);
+         or res = sys_exec(cmd);
+
+     These functions run the shell command CMD and return its result.
+
+     The function sys_command is a simplified version which raises an error if
+     the command returns a non-zero status and, otherwise, returns the
+     contents of the standard output of the command as an array of string(s).
+     This command is similar to the built-in system command (which see) except
+     that it manages errors if the command fails and return the output of the
+     command otherwise.
+
+     The function sys_exec evaluates the command CMD and returns a structured
+     result whatever the status returned by the command CMD:
+
+         RES.status = status returned by the command
+         RES.out    = a pointer to an array of string(s) with the contents
+                      of the standard output of the command;
+         RES.err    = a pointer to an array of string(s) with the contents
+                      of the standard output error of the command;
+
+     The shell command CMD may be a pipeline of several commands but must not
+     consists in several commands separated by ";" and must not redirect the
+     standard output nor the standard error output of the last pipeline
+     command.
+
+     Keywords TMPDIR and MKTEMP may be specified for creating temporary
+     files (see sys_mktemp).
+
+   SEE ALSO: popen, system, sys_mktemp
+ */
+
+func sys_command(cmd, tmpdir=, mktemp=, debug=)
+{
+  if (am_subroutine()) {
+    _sys_exec_worker, 0;
+  } else {
+    return _sys_exec_worker(1);
+  }
+}
+
+func sys_exec(cmd, tmpdir=, mktemp=, debug=, throw=)
+{
+  return _sys_exec_worker(2);
+}
+
+func _sys_exec_worker(mode)
+{
+  extern cmd, tmpdir, mktemp, debug;
+ tmp2 = sys_mktemp("out2-XXXXXX", tmpdir=tmpdir, mktemp=mktemp);
+  if (mode == 0) {
+    tmp1 = [];
+    post = " 1>/dev/null 2>>\"" + tmp2 + "\"; echo $?";
+  } else {
+    tmp1 = sys_mktemp("out1-XXXXXX", tmpdir=tmpdir, mktemp=mktemp);
+    post = " 1>>\"" + tmp1 + "\" 2>>\"" + tmp2 + "\"; echo $?";
+  }
+  script = cmd + post;
+  if (debug) {
+    write, format="SCRIPT: %s\n", script;
+  }
+  status = 0n;
+  if (sread(rdline(popen(script, 0)), format="%d", status) != 1) {
+    status = -1;
+  }
+  if (status || mode == 2) {
+    err = sys_read_stream(open(tmp2));
+    if (! debug) remove, tmp2;
+  }
+  if (mode != 0) {
+    out = sys_read_stream(open(tmp1));
+    if (! debug) remove, tmp1;
+    if (mode == 2) {
+      return sys_exec_result(status = status, out = &out, err = &err);
+    }
+  }
+  if (status) {
+    if (numberof(err) > 1) {
+      err = sum(err(1:-1) + "\n") + err(0);
+    } else if (strlen(err) == 0) {
+      err = swrite(format="command returned status %d", status);
+    }
+    error, err;
+  }
+  return out;
+}
+errs2caller, _sys_exec_worker;
+
+func sys_get_sizeof_type(type, head=, cc=, tmpdir=, mktemp=, cflags=,
+                         ldflags=, cppflags=, defs=, libs=, exe=, debug=)
+{
+  /* Prepare the preamble of the code. */
+  if (numberof(head) > 0) {
+    code = sum(head + "\n");
+  } else {
+    code = "";
+  }
+  code += "#include <stdio.h>\nint main() {\n";
+
+  /* Add statements to print the result. */
+  code += swrite(format="  printf(\"%%ld\\n\", (long)sizeof(%s));\n",
+                 type);
+
+  /* Finalize the code, compile it and run the command. */
+  code += "  return 0;\n}\n";
+  res = sys_run_code(code, tmpdir=tmpdir, mktemp=mktemp,
+                     cc=cc, cflags=cflags, ldflags=ldflags,
+                     cppflags=cppflags, defs=defs, libs=libs,
+                     exe=exe, debug=debug);
+  value = 0;
+  if (sread(res, value) == 1) return value;
+  return -1;
+}
+
+func sys_run_code(code, cc=, tmpdir=, mktemp=, cflags=,
+                  ldflags=, cppflags=, defs=, libs=, exe=, debug=)
+/* DOCUMENT sys_run_code(code);
+
+     Compile some C code on-the fly and return the standard output of the
+     resulting executable.
+
+     Do not forget the final "return 0;" in the "main()" function of the
+     code to avoid triggering an error (see sys_command).
+
+   EXAMPLE:
+     code = ["#include <math.h>",
+             "#include <stdio.h>",
+             "int main() {",
+             "  double x = 2.56;",
+             "",
+             "  printf(\"sin(%g) = %g\\n\", x, sin(x)); ",
+             "  printf(\"cos(%g) = %g\\n\", x, cos(x)); ",
+             "",
+             "  return 0;",
+             "}"];
+     str = sys_run_code(code, libs="-lm");
+
+   SEE ALSO: sys_command.
+ */
+{
+  if (is_void(cc)) cc = "gcc";
+  if (is_void(defs)) defs = "";
+  if (is_void(cppflags)) cppflags = "";
+  if (is_void(cflags)) cflags = "-O";
+  if (is_void(ldflags)) ldflags = "";
+  if (is_void(exe)) exe = "";
+  if (is_void(libs)) libs = "";
+
+  srcname = sys_mktemp("test-XXXXXX.c", tmpdir=tmpdir, mktemp=mktemp);
+  exename = strpart(srcname, 1:-2) + exe;
+  file = open(srcname, "w");
+  n = numberof(code);
+  for (i = 1; i <= n; ++i) {
+    write, file, format = "%s\n", code(i);
+  }
+  close, file;
+
+  compile = (cc + " " + defs + " " + cppflags + " " + cflags
+             + " \"" + srcname + "\" -o \"" + exename + "\" "
+             + ldflags + " " + libs);
+  sys_command, compile, debug=debug;
+  result = sys_command(exename, debug=debug);
+  if (! debug) {
+    remove, srcname;
+    remove, exename;
+  }
+  return result;
+}
+/*---------------------------------------------------------------------------*/
+
 if (0) {
 u = sys_getaddrinfo("localhost", "12285", family = SYS.AF_INET, socktype = SYS.SOCK_STREAM, flags = SYS.AI_CANONNAME);
  u;
  }
+
+func sys_shm_test(rw)
+{
+  local buf;
+  size = 1024;
+  key = 72413;
+  perm = 0666;
+  if (rw == "w") {
+    shmid = SYS.shmget(key, size, SYS.IPC_CREAT | SYS.IPC_EXCL | perm);
+    write, format="shmid = %d\n", shmid;
+    addr = SYS.shmat(shmid, 0, 0);
+    if (addr == -1) error, "shmat failed";
+    reshape, buf, addr, char, size;
+    tmp = strchar("Hello world!");
+    n = numberof(tmp);
+    buf(1:n) = tmp;
+    nil = SYS.shmdt(addr);
+  } else if (rw == "r") {
+    shmid = SYS.shmget(key, size, perm);
+    write, format="shmid = %d\n", shmid;
+    addr = SYS.shmat(shmid, 0, 0);
+    if (addr == -1) error, "shmat failed";
+    reshape, buf, addr, char, size;
+    str = strchar(buf);
+    write, format="received: %s\n", str(1);
+    nil = SYS.shmdt(addr);
+    status = SYS.shmctl(shmid, SYS.IPC_RMID, &[]);
+    write, format="status = %d\n", status;
+  }
+}
+
+/*---------------------------------------------------------------------------*/
+if (! is_hash(SYS)) {
+  _sys_init;
+}
+
 /*
  * Local Variables:
  * mode: Yorick
