@@ -179,4 +179,4 @@ WISH LIST
 
 AUTHORS
 =======
-Éric Thiébaut <https://github.com/emmt>
+* [Éric Thiébaut](https://github.com/emmt)

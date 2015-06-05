@@ -5,7 +5,7 @@
  *
  *-----------------------------------------------------------------------------
  *
- * Copyright (C) 2011-2015: Éric Thiébaut <thiebaut@obs.univ-lyon1.fr>
+ * Copyright (C) 2011-2015: Éric Thiébaut <https://github.com/emmt>
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
