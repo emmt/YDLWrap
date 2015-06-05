@@ -1,3 +1,7 @@
+2015-06-05:
+ * Version 0.0.5 released.
+ * First version hosted on GitHub.
+
 2013-07-11:
  * Version 0.0.4 released.
  * Some more stuff in `dlsys.i`.
