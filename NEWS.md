@@ -1,3 +1,7 @@
+2013-07-11:
+ * Version 0.0.4 released.
+ * Some more stuff in `dlsys.i`.
+
 2011-10-05:
  * Version 0.0.3 released.
  * Added `dlsys.i` file for wrapping C-library.
