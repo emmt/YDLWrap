@@ -30,9 +30,9 @@ RELEASE_FILES = \
   ${srcdir}/AUTHORS \
   ${srcdir}/LICENSE \
   ${srcdir}/Makefile \
-  ${srcdir}/NEWS \
-  ${srcdir}/README \
-  ${srcdir}/TODO \
+  ${srcdir}/NEWS.md \
+  ${srcdir}/README.md \
+  ${srcdir}/TODO.md \
   $(PKG_I) \
   $(PKG_I_EXTRA) \
   ${srcdir}/ydlwrap.h \
