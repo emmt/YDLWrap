@@ -3,6 +3,7 @@
 ywrap.c
 build/
 3rd-party/
+releases/
 work/
 
 # Automatic backups #
