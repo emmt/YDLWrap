@@ -18,7 +18,7 @@ TGT=$(DEFAULT_TGT)
 # ------------------------------------------------ macros for this package
 
 PKG_NAME=dlwrap
-PKG_I=${srcdir}/dlwrap.i
+PKG_I=$(srcdir)/dlwrap.i
 
 #OBJS=ydlload.o
 OBJS=ydlload.o ydlcall.o
@@ -27,17 +27,17 @@ OBJS=ydlload.o ydlcall.o
 PKG_EXENAME=yorick
 
 RELEASE_FILES = \
-  ${srcdir}/AUTHORS \
-  ${srcdir}/LICENSE \
-  ${srcdir}/Makefile \
-  ${srcdir}/NEWS.md \
-  ${srcdir}/README.md \
-  ${srcdir}/TODO.md \
+  $(srcdir)/AUTHORS \
+  $(srcdir)/LICENSE \
+  $(srcdir)/Makefile \
+  $(srcdir)/NEWS.md \
+  $(srcdir)/README.md \
+  $(srcdir)/TODO.md \
   $(PKG_I) \
   $(PKG_I_EXTRA) \
-  ${srcdir}/ydlwrap.h \
-  ${srcdir}/ydlload.c \
-  ${srcdir}/ydlcall.c
+  $(srcdir)/ydlwrap.h \
+  $(srcdir)/ydlload.c \
+  $(srcdir)/ydlcall.c
 
 RELEASE_NAME = y$(PKG_NAME)-$(RELEASE_VERSION).tar.bz2
 
@@ -58,9 +58,9 @@ EXTRA_PKGS=$(Y_EXE_PKGS)
 PKG_CLEAN=
 
 # autoload file for this package, if any
-PKG_I_START=
+PKG_I_START=$(srcdir)/dlwrap-start.i
 # non-pkg.i include files for this package, if any
-PKG_I_EXTRA=${srcdir}/dlsys.i
+PKG_I_EXTRA=$(srcdir)/dlsys.i
 
 # -------------------------------- standard targets and rules (in Makepkg)
 
@@ -93,7 +93,7 @@ MAKE_TEMPLATE = protect-against-1.5
 dummy-default:
 	@echo >&2 "*** ERROR: Y_MAKEDIR not defined, aborting..."; false
 
-%.o: ${srcdir}/%.c
+%.o: $(srcdir)/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
 
 
@@ -102,8 +102,8 @@ dummy-default:
 # more complex example (also consider using PKG_CFLAGS above):
 #myfunc.o: myapi.h myfunc.c
 #	$(CC) $(CPPFLAGS) $(CFLAGS) -DMY_SWITCH -o $@ -c myfunc.c
-ydlcall.o: ${srcdir}/ydlcall.c ${srcdir}/ydlwrap.h
-ydlload.o: ${srcdir}/ydlload.c ${srcdir}/ydlwrap.h
+ydlcall.o: $(srcdir)/ydlcall.c $(srcdir)/ydlwrap.h
+ydlload.o: $(srcdir)/ydlload.c $(srcdir)/ydlwrap.h
 
 release: $(RELEASE_NAME)
 

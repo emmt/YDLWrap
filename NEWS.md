@@ -1,3 +1,5 @@
+ * Add autoload file.
+
 2015-06-05:
  * Version 0.0.5 released.
  * First version hosted on GitHub.
