@@ -5,7 +5,7 @@
               |_| |____/|_____|\_/\_/  |_|  \__,_| .__/
                                                  |_|
 
-**YDLWrap** is a [Yorick](http://yorick.github.com/) plugin for dynamically
+**YDLWrap** is a [Yorick](http://github.com/LLNL/yorick/) plugin for dynamically
 calling compiled functions.
 
 The interface is *fast* -- I have measured an extra overhead of about 15
